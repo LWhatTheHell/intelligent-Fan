@@ -27,6 +27,7 @@ void delay(unsigned int ms){
 }
 
 void Timer() interrupt 1 using 0 {
+	TR0=0;
 	FAN1=~FAN1;
 	FAN2=~FAN2;
 	if(SR==1){
@@ -40,34 +41,56 @@ void Timer() interrupt 1 using 0 {
 	}else{
 		FAN1=FAN2=0;		
 	}
-	counter++;
-	if(counter==360000){						   //38s
-		FAN1=FAN2=0;
+	TR0=1;
+}
+
+void Timer1() interrupt 3 using 1{
+	TR1=0;
+	if(counter==1000){
 		counter=0;
+		TR0=0;
+		ET0=0;
+		FAN1=FAN2=0;
 		num=temperature();
-		if(num<0){
-			lowTime=40;
-			highTime=1;
-		}else if(num>=40){
-			highTime=40;
-			lowTime=1;
+		if(num>40){
+			num=40;
 		}
 		lowTime=40-num;
-		highTime=1+num;
+		highTime=num;
+		if(num<0){
+			
+		}else{
+		ET0=1;
+		TR0=1;
+		}
+	}else{
+		counter++;
 	}
+	TR1=1;
 }
 
 void main(){
-	FAN1=FAN2=1;
-	num=temperature();
-	lowTime=40-num;
-	highTime=1+num;
-	TMOD=0x01;
+	FAN1=FAN2=0;
+	TMOD=0x11;
 	TH0=255;
 	TL0=254;
+	TH1=0x00;
+	TL1=0x00;
 	EA=1;
+	num=temperature();
+	if(num>40){
+		num=40;
+	}
+	lowTime=40-num;
+	highTime=num;
+	if(num<0){
+		
+	}else{
 	ET0=1;
 	TR0=1;
+	}
+	ET1=1;
+	TR1=1;
 
 	while(1);							 
 }
@@ -134,16 +157,17 @@ unsigned int temperature(){
 		init_t();
 		write_t(0xcc);
 		write_t(0xbe);
-		temp = (read_t()/16)-4;
+		temp = (read_t()/16);
 		if(temp<=180){
 			LED1=number[(temp%100)/10];
 			LED2=number[temp%10];
 			return temp;
 		}else{
-			temp-=180;
+			temp = ~temp+1;
+			temp= -temp;
 			LED1=number_negative[(temp%100)/10];
 			LED2=number_negative[temp%10];
-			return temp+180;
+			return -temp;
 		}
 
 }
